@@ -6,13 +6,13 @@ from chunk metadata (never typed by the model), and an output filter blocks
 any response that leaks the system prompt or secret-looking strings.
 
 Public interface (for the Streamlit UI):
-    from src.qa import answer
+    from rag.qa import answer
     a = answer("What is a SYN flood?")
     a.text, a.citations, a.refused, a.blocked
 
 Usage:
-    python -m src.qa "What is a SYN flood?"
-    python -m src.qa              # interactive
+    python -m rag.qa "What is a SYN flood?"
+    python -m rag.qa              # interactive
 """
 import os
 import re
@@ -21,9 +21,9 @@ import sys
 import time
 from dataclasses import dataclass, field
 
-from src import config
-from src.llm import generate
-from src.retriever import RetrievedChunk, retrieve
+from rag import config
+from rag.llm import generate
+from rag.retriever import RetrievedChunk, retrieve
 
 SYSTEM_TEMPLATE = """You are the CS5342 Network Security course tutor.
 
@@ -198,7 +198,7 @@ def answer(question: str) -> Answer:
         return Answer(question, f"Please keep questions under {config.MAX_QUESTION_CHARS} "
                                 "characters.", refused=True)
 
-    chunks = retrieve(question)
+    chunks = retrieve(question, doc_type=config.QA_DOC_TYPES)
     if not chunks:   # relevance gate: nothing in the course is close enough
         return Answer(question, config.REFUSAL_MESSAGE, refused=True,
                       seconds=time.perf_counter() - start)

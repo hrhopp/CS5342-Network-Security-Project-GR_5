@@ -5,9 +5,9 @@ Chunk IDs are deterministic (Step 4), so re-running never creates duplicates,
 and chunks already stored are skipped instead of re-embedded.
 
 Usage (from the project root, venv active):
-    python -m src.vectorstore --limit 32   # small test batch
-    python -m src.vectorstore              # everything approved
-    python -m src.vectorstore --stats      # what's stored
+    python -m rag.vectorstore --limit 32   # small test batch
+    python -m rag.vectorstore              # everything approved
+    python -m rag.vectorstore --stats      # what's stored
 """
 import argparse
 import sys
@@ -15,13 +15,13 @@ import time
 
 # config must be imported BEFORE chromadb: it forces telemetry/tracing env
 # flags off, which chromadb reads at import time.
-from src import config
+from rag import config
 import chromadb  # noqa: E402
 from chromadb.config import Settings  # noqa: E402
 
-from src.chunker import IntegrityError, chunk_approved_files  # noqa: E402
-from src.embeddings import embed_documents  # noqa: E402
-from src.integrity import scan  # noqa: E402
+from rag.chunker import IntegrityError, chunk_approved_files  # noqa: E402
+from rag.embeddings import embed_documents  # noqa: E402
+from rag.integrity import scan  # noqa: E402
 
 
 def get_collection() -> chromadb.Collection:
@@ -53,7 +53,7 @@ def ingest(limit: int | None = None) -> None:
     collection = get_collection()
     if not chunks:
         print("No approved documents to ingest. Put PDFs in docs/raw/slides|textbook|quizzes/ "
-              "and run python -m src.integrity first.")
+              "and run python -m rag.integrity first.")
         return
 
     # The DB mirrors the approved files currently in docs/raw: drop chunks of

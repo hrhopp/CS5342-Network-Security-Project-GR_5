@@ -5,10 +5,11 @@ citation "(Lecture 4, slide 12)". Only our own metadata fields are kept: the
 PDF's embedded metadata is attacker-controllable and is discarded.
 
 Usage (from the project root, venv active):
-    python -m src.loader                          # summary of every PDF
-    python -m src.loader "Lecture 1_slides.pdf" 5 # print page 5 of one PDF
+    python -m rag.loader                          # summary of every PDF
+    python -m rag.loader "Lecture 1_slides.pdf" 5 # print page 5 of one PDF
 """
 import argparse
+import logging
 import re
 import sys
 import warnings
@@ -23,8 +24,13 @@ warnings.filterwarnings("ignore", message=r".*langchain-community.*sunset",
                         category=DeprecationWarning)
 from langchain_community.document_loaders import PyPDFLoader  # noqa: E402
 
-from src import config  # noqa: E402
-from src.integrity import list_documents, rel_name  # noqa: E402
+from rag import config  # noqa: E402
+from rag.integrity import list_documents, rel_name  # noqa: E402
+
+# Some exported slide decks have a slightly broken cross-reference table.
+# pypdf repairs it and logs "Ignoring wrong pointing object" hundreds of times;
+# the text is unaffected, so show only real errors.
+logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 
 # Some textbook fonts name characters instead of encoding them, so pypdf emits

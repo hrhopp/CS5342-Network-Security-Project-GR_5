@@ -6,9 +6,9 @@ course data, and nothing sensitive is tracked by git. --egress runs a real
 question while watching every TCP connection of our process and Ollama.
 
 Usage (from the project root, venv active):
-    python -m src.security_check                 # run all checks
-    python -m src.security_check --harden        # restrict folder permissions
-    python -m src.security_check --egress        # also watch connections during a real Q&A
+    python -m rag.security_check                 # run all checks
+    python -m rag.security_check --harden        # restrict folder permissions
+    python -m rag.security_check --egress        # also watch connections during a real Q&A
 """
 import argparse
 import os
@@ -20,7 +20,7 @@ import threading
 import time
 from urllib.parse import urlparse
 
-from src import config
+from rag import config
 
 IS_WINDOWS = os.name == "nt"
 PROTECTED_DIRS = [config.DATA_DIR, config.RAW_DOCS_DIR]
@@ -180,7 +180,7 @@ def _ollama_pids() -> dict[int, str]:
 
 def egress_check(question: str) -> bool:
     """Ask a real question while recording any non-loopback TCP connection."""
-    from src.qa import answer
+    from rag.qa import answer
 
     watched = {os.getpid(): "python (this app)", **_ollama_pids()}
     seen: dict[tuple, str] = {}

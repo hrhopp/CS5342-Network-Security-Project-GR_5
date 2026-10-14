@@ -5,7 +5,7 @@ talks to the model directly. Teammates (quiz agent, grader) call generate()
 with their own system prompt and, if needed, their own temperature.
 
 Usage:
-    python -m src.llm "Explain a SYN flood in two sentences."
+    python -m rag.llm "Explain a SYN flood in two sentences."
 """
 import sys
 import time
@@ -15,7 +15,7 @@ from functools import lru_cache
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 
-from src import config
+from rag import config
 
 
 @dataclass

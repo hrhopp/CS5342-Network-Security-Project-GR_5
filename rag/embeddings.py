@@ -8,7 +8,7 @@ from functools import lru_cache
 
 from langchain_ollama import OllamaEmbeddings
 
-from src import config
+from rag import config
 
 
 @lru_cache(maxsize=1)

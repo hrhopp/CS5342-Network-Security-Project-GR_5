@@ -5,8 +5,8 @@ knowledge-base poisoning: if an already-approved document changes by even one
 byte, ingestion is refused until a human reviews and re-approves it.
 
 Usage (from the project root, venv active):
-    python -m src.integrity                      # check files, register new ones
-    python -m src.integrity --accept <file.pdf>  # re-approve a reviewed change
+    python -m rag.integrity                      # check files, register new ones
+    python -m rag.integrity --accept <file.pdf>  # re-approve a reviewed change
 """
 import argparse
 import hashlib
@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src import config
+from rag import config
 
 MANIFEST_VERSION = 1
 
@@ -133,7 +133,7 @@ def main() -> int:
             print(f"{args.forget} is not in the manifest.")
             return 1
         save_manifest(manifest)
-        print(f"Forgot {args.forget}. Run python -m src.vectorstore to purge its chunks.")
+        print(f"Forgot {args.forget}. Run python -m rag.vectorstore to purge its chunks.")
         return 0
 
     if args.accept:
@@ -160,7 +160,7 @@ def main() -> int:
             print(f"  - {name}")
         print("Possible knowledge-base poisoning. Nothing was ingested or recorded.")
         print("If the change is legitimate, review the file, then run:")
-        print("  python -m src.integrity --accept <file>")
+        print("  python -m rag.integrity --accept <file>")
         return 1
 
     if result.new:

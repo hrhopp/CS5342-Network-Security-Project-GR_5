@@ -23,7 +23,7 @@ for _var, _value in {"ANONYMIZED_TELEMETRY": "False", "LANGCHAIN_TRACING_V2": "f
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-# Project root = the folder that contains src/. Derived from this file's own
+# Project root = the folder that contains rag/. Derived from this file's own
 # location, so paths are correct no matter which directory Python is run from.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -73,6 +73,11 @@ MIN_PAGE_CHARS = 50
 # doc_type comes from the subfolder of docs/raw a file sits in. Files anywhere
 # else are rejected, so every chunk gets a known doc_type.
 DOC_TYPE_FOLDERS = {"slides": "slides", "textbook": "textbook", "quizzes": "quiz"}
+
+# doc_types the Q&A tutor may cite. "quiz" (past homework with student-written
+# answers, some wrong) is left out: it is only for the quiz agent, via
+# retrieve(..., doc_type="quiz"), never presented as authoritative course text.
+QA_DOC_TYPES = ("slides", "textbook")
 
 # Max characters per chunk (~1000 chars = ~170 words = ~250 tokens).
 # Smaller than a textbook page, larger than any of our slides, so each slide

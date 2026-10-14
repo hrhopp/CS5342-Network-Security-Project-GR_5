@@ -4,24 +4,25 @@ The question is embedded with the same model as the chunks (query prefix),
 ChromaDB returns the nearest vectors, and two calibrated thresholds decide
 whether the question is in scope at all. Public interface for teammates:
 
-    from src.retriever import retrieve
+    from rag.retriever import retrieve
     for chunk in retrieve("What is a SYN flood?", doc_type="slides"):
         print(chunk.citation, chunk.similarity, chunk.text)
 
 Usage:
-    python -m src.retriever "What is a SYN flood?"
-    python -m src.retriever "What is a SYN flood?" --type slides --k 6
+    python -m rag.retriever "What is a SYN flood?"
+    python -m rag.retriever "What is a SYN flood?" --type slides --k 6
 """
 import argparse
 import re
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from src import config
-from src.embeddings import embed_query
-from src.vectorstore import get_collection
+from rag import config
+from rag.embeddings import embed_query
+from rag.vectorstore import get_collection
 
 
 @dataclass
@@ -51,9 +52,21 @@ def _collection():
     return get_collection()
 
 
+def _where(doc_type: str | Sequence[str] | None) -> dict | None:
+    """ChromaDB metadata filter for one doc_type, several, or all (None)."""
+    if doc_type is None:
+        return None
+    if isinstance(doc_type, str):
+        return {"doc_type": doc_type}
+    return {"doc_type": {"$in": list(doc_type)}}
+
+
 def retrieve(question: str, k: int = config.TOP_K,
-             doc_type: str | None = None) -> list[RetrievedChunk]:
-    """Top-k relevant chunks, or [] if the question isn't covered by the course."""
+             doc_type: str | Sequence[str] | None = None) -> list[RetrievedChunk]:
+    """Top-k relevant chunks, or [] if the question isn't covered by the course.
+
+    doc_type: "slides", "textbook", "quiz", a list of them, or None for all.
+    """
     question = question.strip()
     # No letters or digits (empty, punctuation, invisible characters such as a
     # byte-order mark): nothing to search for, and such near-empty vectors can
@@ -61,13 +74,13 @@ def retrieve(question: str, k: int = config.TOP_K,
     if not re.search(r"[A-Za-z0-9]", question):
         return []
     if _collection().count() == 0:
-        print("[retriever] knowledge base is empty: run python -m src.vectorstore",
+        print("[retriever] knowledge base is empty: run python -m rag.vectorstore",
               file=sys.stderr)
         return []
     result = _collection().query(
         query_embeddings=[embed_query(question)],
         n_results=k,
-        where={"doc_type": doc_type} if doc_type else None,
+        where=_where(doc_type),
         include=["documents", "metadatas", "distances"],
     )
     chunks = [

@@ -7,8 +7,8 @@ Chunks never cross a page boundary, so each chunk has exactly one page number
 -- that page number becomes the citation.
 
 Usage (from the project root, venv active):
-    python -m src.chunker             # chunk all approved files, show 5 random chunks
-    python -m src.chunker --sample 10
+    python -m rag.chunker             # chunk all approved files, show 5 random chunks
+    python -m rag.chunker --sample 10
 """
 import argparse
 import random
@@ -18,9 +18,9 @@ from pathlib import Path
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from src import config
-from src.integrity import list_documents, load_manifest, rel_name, scan, sha256_file
-from src.loader import load_pdf
+from rag import config
+from rag.integrity import list_documents, load_manifest, rel_name, scan, sha256_file
+from rag.loader import load_pdf
 
 
 class IntegrityError(Exception):
@@ -78,9 +78,9 @@ def chunk_approved_files() -> list[Document]:
     result = scan()
     if not result.ok:
         raise IntegrityError("modified files: " + ", ".join(result.changed)
-                             + " -- run python -m src.integrity")
+                             + " -- run python -m rag.integrity")
     if result.new:
-        print("Not yet approved (run python -m src.integrity first): "
+        print("Not yet approved (run python -m rag.integrity first): "
               + ", ".join(result.new))
 
     approved = load_manifest()["files"]
