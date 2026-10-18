@@ -221,9 +221,14 @@ def _connections(pids: set[int]) -> list[tuple[int, str, str]]:
     return found
 
 
-def egress_check(question: str) -> bool:
-    """Ask a real question while recording any non-loopback TCP connection."""
-    from rag.qa import answer
+def egress_check(question: str, web: bool = False) -> bool:
+    """Ask a real question while recording any non-loopback TCP connection.
+
+    web=True is the internet-assisted scenario: the app may contact the
+    search service, so those connections are listed (with their hosts) but
+    only Ollama connecting out counts as a failure.
+    """
+    from web.search import tutor
 
     watched = {os.getpid(): "python (this app)", **_ollama_pids()}
     seen: dict[tuple, str] = {}
@@ -238,18 +243,23 @@ def egress_check(question: str) -> bool:
 
     t = threading.Thread(target=sample, daemon=True)
     t.start()
-    a = answer(question)
+    a = tutor(question, allow_web=web)
     stop.set()
     t.join()
 
     print(f"\nWatched processes: {sorted(set(watched.values()))}")
-    print(f"Question: {question}\nAnswer ({a.seconds:.1f}s): {a.text[:150]}...")
+    print(f"Question: {question}\nAnswer ({a.seconds:.1f}s, "
+          f"{'web' if a.from_web else 'course'}): {a.text[:150]}...")
+    if a.from_web:
+        print(f"Sent to the web: the question only. Audit log: {config.WEB_AUDIT_LOG}")
     if seen:
         print("NON-LOCAL connections observed:")
         for (proc, remote), state in seen.items():
             print(f"  {proc} -> {remote} ({state})")
     else:
         print("No non-loopback TCP connections from the app or Ollama during the answer.")
+    if web:   # expected: the app talks to the search service; Ollama must not
+        return not [p for p, _ in seen if p != watched[os.getpid()]]
     return not seen
 
 
@@ -258,6 +268,8 @@ def main() -> int:
     parser.add_argument("--harden", action="store_true", help="restrict folder permissions first")
     parser.add_argument("--egress", nargs="?", const="What is a SYN flood?", metavar="QUESTION",
                         help="watch network connections during a real Q&A")
+    parser.add_argument("--web", action="store_true",
+                        help="with --egress: allow web search (internet-assisted scenario)")
     args = parser.parse_args()
 
     if args.harden:
@@ -271,7 +283,7 @@ def main() -> int:
         failed += ok is False
         print(f"[{mark}] {name:<40} {detail}")
 
-    if args.egress is not None and not egress_check(args.egress):
+    if args.egress is not None and not egress_check(args.egress, web=args.web):
         failed += 1
 
     print(f"\n{'ALL CHECKS PASSED' if not failed else f'{failed} CHECK(S) FAILED'}")

@@ -212,6 +212,46 @@ REFUSAL_MESSAGE = "I can't find this in the course materials."
 # Shown instead of a response that the output filter blocked.
 BLOCKED_MESSAGE = "I can't share that. Please ask a question about the course material."
 
+# Appended to the refusal shown to the student when the course doesn't cover a
+# question (not to what the model must say, which has to stay exact).
+REFUSAL_HINT = "Turn on web search, or look it up with a search engine."
+
+# ---------------------------------------------------------------------------
+# Web search (the ONE deliberate exception to local-only)
+# ---------------------------------------------------------------------------
+# Used only when the user turns it on AND the course has nothing relevant, or
+# for "learn more" links in quiz feedback. Only the user's question is sent,
+# over HTTPS; course text, chunks and embeddings never are. Result pages are
+# never opened: titles, URLs and snippets come back in the search response
+# itself, so the search services below are the only external hosts contacted.
+#
+# Search services, tried in order until one returns results. DuckDuckGo
+# rate-limits automated queries ("No results found" for minutes at a time),
+# so Wikipedia's search API is the fallback; it needs keyword queries, which
+# web.search derives from the question. Neither needs an API key, so there is
+# no key to store or leak (threat T3). If a keyed API is ever added, read the
+# key from .env (gitignored). These are the only external hosts contacted.
+WEB_BACKENDS = ("duckduckgo", "wikipedia")
+
+# Results per lookup. Each snippet goes into the prompt, so 3 x ~1000 chars
+# stays well inside the context window. Range: 2-5.
+WEB_MAX_RESULTS = 3
+
+# Web text is the most likely source of injected instructions, so each snippet
+# is capped (on top of redaction). Range: 300-1500.
+WEB_SNIPPET_CHARS = 1000
+
+# Longest query sent out. Shorter than MAX_QUESTION_CHARS: a long query is
+# more likely to carry pasted course text off the machine. Range: 100-300.
+WEB_QUERY_MAX_CHARS = 200
+
+# Seconds before a lookup is abandoned (e.g. Wi-Fi off). Range: 5-20.
+WEB_TIMEOUT = 10
+
+# Local record of every lookup (time, query, result hosts), so internet use is
+# visible and auditable. In data/, so it is gitignored and owner-only.
+WEB_AUDIT_LOG = DATA_DIR / "web_audit.log"
+
 
 def ensure_dirs() -> None:
     """Create the working folders if missing (e.g. on a fresh clone)."""

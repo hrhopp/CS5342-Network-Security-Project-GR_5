@@ -66,6 +66,7 @@ class Answer:
     blocked: bool = False
     seconds: float = 0.0
     suspicious_sources: list[str] = field(default_factory=list)  # had injection-like text
+    from_web: bool = False    # answered from web search (web.search), not the course
 
 
 # Phrases that address the model rather than teach the subject. Matching
@@ -189,6 +190,10 @@ def attach_citations(text: str, chunks: list[RetrievedChunk]) -> tuple[str, list
     return text, used
 
 
+# What the student sees when the course doesn't cover the question.
+NOT_IN_COURSE = f"{config.REFUSAL_MESSAGE} {config.REFUSAL_HINT}"
+
+
 def answer(question: str) -> Answer:
     start = time.perf_counter()
     question = question.strip()
@@ -200,7 +205,7 @@ def answer(question: str) -> Answer:
 
     chunks = retrieve(question, doc_type=config.QA_DOC_TYPES)
     if not chunks:   # relevance gate: nothing in the course is close enough
-        return Answer(question, config.REFUSAL_MESSAGE, refused=True,
+        return Answer(question, NOT_IN_COURSE, refused=True,
                       seconds=time.perf_counter() - start)
 
     system, user, s = build_prompt(question, chunks)
@@ -215,7 +220,7 @@ def answer(question: str) -> Answer:
 
     raw = MARKER_LIKE.sub("", raw).strip()
     if REFUSAL_SHAPE.search(raw):
-        return Answer(question, config.REFUSAL_MESSAGE, chunks=chunks, refused=True,
+        return Answer(question, NOT_IN_COURSE, chunks=chunks, refused=True,
                       seconds=time.perf_counter() - start, suspicious_sources=suspicious)
 
     text, citations = attach_citations(raw, chunks)

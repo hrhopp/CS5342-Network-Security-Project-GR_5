@@ -31,7 +31,6 @@ import time
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
 
-from rag import config
 from rag.llm import generate
 from rag.qa import MARKER_LIKE, leak_reason, redact_injections
 from rag.retriever import RetrievedChunk, retrieve

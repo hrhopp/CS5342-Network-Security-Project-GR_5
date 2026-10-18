@@ -1,10 +1,13 @@
-# Requires Python 3.10.11 (any 3.10.x >= 3.10.1).
-# Python 3.10.0 crashes on import: pydantic (used by LangChain) needs a typing
-# fix that first shipped in 3.10.1.
+# Requires Python 3.10.1 or newer. Tested on 3.10.11 (Windows 11) and
+# 3.14.6 (macOS, Apple Silicon). Python 3.10.0 crashes on import: pydantic
+# (used by LangChain) needs a typing fix that first shipped in 3.10.1.
 #
-# Install:  py -3.10 -m venv .venv
-#           .\.venv\Scripts\Activate.ps1
-#           pip install -r requirements.txt
+# Install (Windows):  py -3.10 -m venv .venv
+#                     .\.venv\Scripts\Activate.ps1
+#                     pip install -r requirements.txt
+# Install (macOS):    python3 -m venv .venv
+#                     source .venv/bin/activate
+#                     pip install -r requirements.txt
 #
 # Direct dependencies pinned to exact versions so every teammate runs the
 # same code. Models are pulled separately:
@@ -21,3 +24,5 @@ pypdf==6.20.0
 # Optional pypdf helper: decodes the textbook's embedded (CFF) fonts properly.
 # Without it pypdf prints thousands of warnings and may mis-decode characters.
 fonttools==4.65.0
+# Web search (opt-in fallback + quiz feedback links): DuckDuckGo, no API key.
+ddgs==9.16.0
