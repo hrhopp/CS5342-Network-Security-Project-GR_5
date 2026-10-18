@@ -67,10 +67,22 @@ def ingest(limit: int | None = None) -> None:
     # splitter changes (e.g. a text-cleaning fix), affected chunks get new text
     # under the same ID and are re-embedded automatically.
     current = {c.id: c for c in chunks}
-    stored = collection.get(ids=list(current), include=["documents"])
-    unchanged = {i for i, d in zip(stored["ids"], stored["documents"])
-                 if d == current[i].page_content}
+    stored = collection.get(ids=list(current), include=["documents", "metadatas"])
+    unchanged, relabel = set(), []
+    for i, d, m in zip(stored["ids"], stored["documents"], stored["metadatas"]):
+        if d == current[i].page_content:
+            unchanged.add(i)
+            # Chunk IDs come from the file's hash, so a renamed file (or one
+            # moved to another type folder) keeps its IDs and text. Without
+            # this, citations would keep showing the old name / doc_type.
+            if m != current[i].metadata:
+                relabel.append(current[i])
     todo = [c for c in chunks if c.id not in unchanged]
+    # Metadata only: no re-embedding needed. Batched because ChromaDB caps a
+    # single write (~5,000 items).
+    for i in range(0, len(relabel), 1000):
+        part = relabel[i:i + 1000]
+        collection.update(ids=[c.id for c in part], metadatas=[c.metadata for c in part])
 
     # Chunks of present files that the pipeline no longer produces (e.g. a page
     # now splits into fewer chunks) would be stale leftovers: remove them.
@@ -82,8 +94,9 @@ def ingest(limit: int | None = None) -> None:
         if orphans:
             collection.delete(ids=orphans)
 
-    print(f"{len(chunks)} chunks approved: {len(unchanged)} already stored, "
-          f"{len(todo)} new or changed to embed, {len(orphans)} stale removed")
+    print(f"{len(chunks)} chunks approved: {len(unchanged)} already stored "
+          f"({len(relabel)} relabelled), {len(todo)} new or changed to embed, "
+          f"{len(orphans)} stale removed")
 
     start = time.perf_counter()
     for i in range(0, len(todo), config.EMBED_BATCH_SIZE):
