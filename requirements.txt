@@ -1,0 +1,23 @@
+# Requires Python 3.10.11 (any 3.10.x >= 3.10.1).
+# Python 3.10.0 crashes on import: pydantic (used by LangChain) needs a typing
+# fix that first shipped in 3.10.1.
+#
+# Install:  py -3.10 -m venv .venv
+#           .\.venv\Scripts\Activate.ps1
+#           pip install -r requirements.txt
+#
+# Direct dependencies pinned to exact versions so every teammate runs the
+# same code. Models are pulled separately:
+#   ollama pull llama3.2:3b
+#   ollama pull nomic-embed-text
+
+langchain==1.4.4
+langchain-core==1.6.9
+langchain-community==0.4.2
+langchain-ollama==1.1.0
+langchain-text-splitters==1.1.3
+chromadb==1.5.9
+pypdf==6.20.0
+# Optional pypdf helper: decodes the textbook's embedded (CFF) fonts properly.
+# Without it pypdf prints thousands of warnings and may mis-decode characters.
+fonttools==4.65.0

@@ -1,0 +1,108 @@
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#4A90E2','primaryTextColor':'#fff','primaryBorderColor':'#2C5282','lineColor':'#4A5568','secondaryColor':'#48BB78','tertiaryColor':'#F6AD55'}}}%%
+
+graph TB
+    %% =================================================================
+    %% USER LAYER
+    %% =================================================================
+
+    USER([Student<br/>Streamlit UI on localhost])
+    style USER fill:#667EEA,stroke:#5A67D8,stroke-width:4px,color:#fff
+
+    subgraph AGENTS["  AGENT LAYER  "]
+        direction LR
+        QA_AGENT["Q&A TUTOR AGENT<br/>rag/qa.py<br/><br/>answer(question)<br/>slides + textbook only<br/>mandatory citations"]
+        QUIZ_AGENT["QUIZ AGENT<br/>(teammate)<br/><br/>MCQ / TF / open-ended<br/>uses retrieve + generate"]
+        style QA_AGENT fill:#4299E1,stroke:#3182CE,stroke-width:3px,color:#fff
+        style QUIZ_AGENT fill:#48BB78,stroke:#38A169,stroke-width:3px,color:#fff
+    end
+    style AGENTS fill:#EDF2F7,stroke:#4A5568,stroke-width:3px,stroke-dasharray: 5 5
+
+    %% =================================================================
+    %% RETRIEVAL LAYER
+    %% =================================================================
+
+    subgraph RETRIEVAL["  RETRIEVAL LAYER  rag/retriever.py  "]
+        direction TB
+        Q_EMBED["Embed question<br/>nomic-embed-text<br/>prefix: search_query:"]
+        VECTOR_DB[("ChromaDB<br/>collection netsec_course<br/>768-dim, cosine, HNSW<br/>data/chroma/")]
+        GATE{"Best distance<br/>≤ 0.35 ?"}
+        CUTOFF["Keep top-4<br/>with distance ≤ 0.40"]
+        REFUSE_GATE["Refuse<br/>not in course materials<br/>(LLM never called)"]
+        style VECTOR_DB fill:#F6E05E,stroke:#D69E2E,stroke-width:3px,color:#000
+        style GATE fill:#FED7D7,stroke:#FC8181,stroke-width:2px,color:#000
+        style REFUSE_GATE fill:#CBD5E0,stroke:#718096,color:#000
+        style Q_EMBED fill:#C3DAFE,stroke:#667EEA,color:#000
+        style CUTOFF fill:#C6F6D5,stroke:#48BB78,color:#000
+    end
+    style RETRIEVAL fill:#F7FAFC,stroke:#2D3748,stroke-width:3px,stroke-dasharray: 5 5
+
+    %% =================================================================
+    %% PROMPT SECURITY + GENERATION
+    %% =================================================================
+
+    subgraph GENERATION["  PROMPT SECURITY + GENERATION  rag/qa.py, rag/llm.py  "]
+        direction TB
+        REDACT["Injection redaction<br/>instruction-like sentences<br/>in chunks removed"]
+        PROMPT["Prompt builder<br/>chunks as UNTRUSTED DATA<br/>random per-request markers<br/>labels S1..S4 + reminder"]
+        OLLAMA["OLLAMA  127.0.0.1:11434<br/>llama3.2:3b<br/>temp 0.1, ctx 4096, max 400"]
+        FILTER{"Output filter<br/>rules text / canary /<br/>secrets?"}
+        BLOCK["Blocked message"]
+        CITE["Citation builder<br/>S1 → (Lecture 1, slide 5)<br/>from metadata only"]
+        style REDACT fill:#FED7E2,stroke:#D53F8C,color:#000
+        style PROMPT fill:#D6BCFA,stroke:#9F7AEA,color:#000
+        style OLLAMA fill:#FC8181,stroke:#E53E3E,stroke-width:3px,color:#fff
+        style FILTER fill:#FED7D7,stroke:#FC8181,stroke-width:2px,color:#000
+        style BLOCK fill:#CBD5E0,stroke:#718096,color:#000
+        style CITE fill:#C6F6D5,stroke:#48BB78,stroke-width:3px,color:#000
+    end
+    style GENERATION fill:#FAF5FF,stroke:#553C9A,stroke-width:3px,stroke-dasharray: 5 5
+
+    %% =================================================================
+    %% INGESTION PIPELINE
+    %% =================================================================
+
+    subgraph INGESTION["  INGESTION PIPELINE  python -m rag.vectorstore  "]
+        direction LR
+        RAW[("docs/raw/<br/>slides/ textbook/ quizzes/")]
+        INTEGRITY{"SHA-256 vs<br/>manifest.json<br/>changed?"}
+        STOP["REFUSE<br/>nothing stored"]
+        LOADER["Loader<br/>PyPDFLoader<br/>1 Document per page"]
+        CHUNKER["Chunker<br/>1000 chars, 150 overlap<br/>never across pages<br/>re-hash (TOCTOU)"]
+        EMBED["Embeddings<br/>nomic-embed-text<br/>prefix: search_document:<br/>batch 32"]
+        style RAW fill:#FC8181,stroke:#E53E3E,color:#fff
+        style INTEGRITY fill:#FED7D7,stroke:#FC8181,stroke-width:2px,color:#000
+        style STOP fill:#CBD5E0,stroke:#718096,color:#000
+        style LOADER fill:#F6AD55,stroke:#DD6B20,color:#000
+        style CHUNKER fill:#68D391,stroke:#38A169,color:#000
+        style EMBED fill:#63B3ED,stroke:#3182CE,color:#000
+    end
+    style INGESTION fill:#FFFAF0,stroke:#C05621,stroke-width:3px,stroke-dasharray: 5 5
+
+    %% =================================================================
+    %% CONNECTIONS
+    %% =================================================================
+
+    USER ==>|question| QA_AGENT
+    USER ==>|topic| QUIZ_AGENT
+    QA_AGENT --> Q_EMBED
+    QUIZ_AGENT -->|"retrieve(topic, doc_type=...)"| Q_EMBED
+    Q_EMBED --> VECTOR_DB
+    VECTOR_DB --> GATE
+    GATE -->|no| REFUSE_GATE
+    GATE -->|yes| CUTOFF
+    CUTOFF --> REDACT
+    REDACT --> PROMPT
+    PROMPT --> OLLAMA
+    OLLAMA --> FILTER
+    FILTER -->|leak| BLOCK
+    FILTER -->|safe| CITE
+    CITE -.->|answer + sources| USER
+    REFUSE_GATE -.-> USER
+    BLOCK -.-> USER
+
+    RAW --> INTEGRITY
+    INTEGRITY -->|yes| STOP
+    INTEGRITY -->|approved| LOADER
+    LOADER --> CHUNKER
+    CHUNKER --> EMBED
+    EMBED ==>|upsert| VECTOR_DB

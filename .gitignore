@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# Course content and generated data -- MUST NEVER be committed.
+# Vector-DB exposure mitigation: ChromaDB stores the full chunk text, so data/
+# is as sensitive as the PDFs themselves. Git history is permanent, so these
+# rules must exist before any course file is added.
+# ---------------------------------------------------------------------------
+
+# Raw course materials (slides, textbook, quizzes). Keep only the placeholder
+# so the folder exists after a fresh clone.
+docs/raw/*
+!docs/raw/.gitkeep
+
+# Generated data: SHA-256 manifest + ChromaDB vector store.
+data/*
+!data/.gitkeep
+
+# Defense in depth: course PDFs placed anywhere else in the repo.
+# To deliberately commit a PDF (e.g. a public diagram), use: git add -f <file>
+*.pdf
+
+# Stray vector-store files if someone points ChromaDB at the wrong folder.
+*.sqlite3
+chroma/
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+.env
+.env.*
+.streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Python / tooling
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+.idea/
