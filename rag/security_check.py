@@ -55,14 +55,25 @@ def check_ollama_url():
 
 
 def check_ollama_listener():
-    port = f":{urlparse(config.OLLAMA_BASE_URL).port}"
-    listening = [line.split()[1] for line in _run(["netstat", "-an"]).splitlines()
-                 if port in line and "LISTEN" in line.upper()]
-    local = [a for a in listening if a.endswith(port)]
+    port = urlparse(config.OLLAMA_BASE_URL).port
+    local = set()
+    if IS_WINDOWS:
+        for line in _run(["netstat", "-an"]).splitlines():
+            parts = line.split()
+            if len(parts) > 1 and "LISTEN" in line.upper() and parts[1].endswith(f":{port}"):
+                local.add(parts[1])
+    else:
+        # macOS netstat omits TCP sockets when run from a subprocess; lsof
+        # doesn't. NAME looks like "127.0.0.1:11434 (LISTEN)" or "*:11434".
+        for line in _run(["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"]).splitlines()[1:]:
+            m = re.search(rf"(\S+:{port})\s+\(LISTEN\)", line)
+            if m:
+                local.add(m.group(1))
     if not local:
         return None, "Ollama is not running (start it, then re-check)"
-    bad = [a for a in local if not (a.startswith("127.") or a.startswith("[::1]"))]
-    return not bad, f"listening on {', '.join(sorted(set(local)))}"
+    bad = [a for a in local
+           if not (a.startswith("127.") or a.startswith("[::1]") or a.startswith("::1."))]
+    return not bad, f"listening on {', '.join(sorted(local))}"
 
 
 def check_ollama_host_env():
@@ -79,6 +90,9 @@ def check_ollama_host_env():
                     values[scope] = winreg.QueryValueEx(k, "OLLAMA_HOST")[0]
             except OSError:
                 values[scope] = None
+    elif sys.platform == "darwin":
+        # The macOS Ollama app reads its settings from launchctl, not the shell.
+        values["launchctl"] = _run(["launchctl", "getenv", "OLLAMA_HOST"]).strip() or None
     set_values = {k: v for k, v in values.items() if v}
     bad = {k: v for k, v in set_values.items()
            if (urlparse(v if "//" in v else f"//{v}").hostname or "") not in config.LOOPBACK_HOSTS}
@@ -124,7 +138,8 @@ def check_permissions():
             mode = stat.S_IMODE(d.stat().st_mode)
             if mode & 0o077:
                 problems.append(f"{d.name}/ mode {oct(mode)} (group/others have access)")
-    return not problems, "; ".join(problems) or "only owner, SYSTEM and Administrators"
+    allowed = "only owner, SYSTEM and Administrators" if IS_WINDOWS else "only owner (mode 700)"
+    return not problems, "; ".join(problems) or allowed
 
 
 def check_git():
@@ -175,7 +190,35 @@ def _ollama_pids() -> dict[int, str]:
             parts = [p.strip('"') for p in line.split('","')]
             if len(parts) > 1 and "ollama" in parts[0].lower():
                 pids[int(parts[1])] = parts[0]
+    else:
+        # pgrep -l prints "<pid> <name>": the server, model runners and tray app.
+        for line in _run(["pgrep", "-il", "ollama"]).splitlines():
+            pid, _, name = line.partition(" ")
+            if pid.isdigit():
+                pids[int(pid)] = name or "ollama"
     return pids
+
+
+def _connections(pids: set[int]) -> list[tuple[int, str, str]]:
+    """(pid, remote address, state) of every TCP connection of the given processes."""
+    found = []
+    if IS_WINDOWS:
+        for line in _run(["netstat", "-ano", "-p", "TCP"]).splitlines():
+            parts = line.split()
+            if len(parts) == 5 and parts[0] == "TCP" and parts[4].isdigit() \
+                    and int(parts[4]) in pids:
+                found.append((int(parts[4]), parts[2], parts[3]))
+    else:
+        # macOS/Linux netstat has no PID column; lsof does. NAME looks like
+        # "192.168.1.5:51866->160.79.104.10:443 (ESTABLISHED)".
+        out = _run(["lsof", "-nP", "-iTCP", "-a", "-p", ",".join(map(str, pids))])
+        for line in out.splitlines()[1:]:
+            parts = line.split()
+            if len(parts) > 2 and parts[1].isdigit():
+                m = re.search(r"->(\S+)(?:\s+\((\w+)\))?", line)
+                if m:
+                    found.append((int(parts[1]), m.group(1), m.group(2) or ""))
+    return found
 
 
 def egress_check(question: str) -> bool:
@@ -188,12 +231,9 @@ def egress_check(question: str) -> bool:
 
     def sample():
         while not stop.is_set():
-            for line in _run(["netstat", "-ano", "-p", "TCP"]).splitlines():
-                parts = line.split()
-                if len(parts) == 5 and parts[0] == "TCP" and parts[4].isdigit():
-                    pid, remote = int(parts[4]), parts[2]
-                    if pid in watched and not _is_loopback(remote):
-                        seen[(watched[pid], remote)] = parts[3]
+            for pid, remote, state in _connections(set(watched)):
+                if not _is_loopback(remote):
+                    seen[(watched[pid], remote)] = state
             time.sleep(0.3)
 
     t = threading.Thread(target=sample, daemon=True)
@@ -231,11 +271,8 @@ def main() -> int:
         failed += ok is False
         print(f"[{mark}] {name:<40} {detail}")
 
-    if args.egress is not None:
-        if not IS_WINDOWS:
-            print("\n--egress is implemented for Windows netstat only; use Wireshark instead.")
-        elif not egress_check(args.egress):
-            failed += 1
+    if args.egress is not None and not egress_check(args.egress):
+        failed += 1
 
     print(f"\n{'ALL CHECKS PASSED' if not failed else f'{failed} CHECK(S) FAILED'}")
     return 1 if failed else 0

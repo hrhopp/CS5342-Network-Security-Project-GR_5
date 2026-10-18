@@ -26,24 +26,33 @@ class LLMResult:
     answer_tokens: int
 
 
-@lru_cache(maxsize=4)
-def _model(temperature: float) -> ChatOllama:
+@lru_cache(maxsize=8)
+def _model(temperature: float, max_tokens: int, json_mode: bool) -> ChatOllama:
     return ChatOllama(
         model=config.LLM_MODEL,
         base_url=config.OLLAMA_BASE_URL,
         temperature=temperature,
         num_ctx=config.LLM_NUM_CTX,
-        num_predict=config.LLM_MAX_TOKENS,
+        num_predict=max_tokens,
         keep_alive=config.LLM_KEEP_ALIVE,
+        # Ollama constrains decoding to valid JSON: the 3B model otherwise
+        # wraps JSON in prose or code fences that json.loads rejects.
+        format="json" if json_mode else None,
     )
 
 
 def generate(user: str, system: str | None = None,
-             temperature: float = config.LLM_TEMPERATURE) -> LLMResult:
-    """Send one prompt to the local model and return its reply plus timing."""
+             temperature: float = config.LLM_TEMPERATURE,
+             max_tokens: int = config.LLM_MAX_TOKENS,
+             json_mode: bool = False) -> LLMResult:
+    """Send one prompt to the local model and return its reply plus timing.
+
+    max_tokens: answer cap (the quiz agent needs more than a Q&A answer).
+    json_mode:  force syntactically valid JSON output.
+    """
     messages = ([SystemMessage(system)] if system else []) + [HumanMessage(user)]
     start = time.perf_counter()
-    reply = _model(temperature).invoke(messages)
+    reply = _model(temperature, max_tokens, json_mode).invoke(messages)
     meta = reply.response_metadata or {}
     return LLMResult(
         text=str(reply.content).strip(),
