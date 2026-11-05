@@ -65,7 +65,8 @@ We built a **local retrieval-augmented generation (RAG) tutor** that:
 | macOS setup + security checks on macOS (`--egress` via `lsof`) | ✅ working | Revanth |
 | Quiz generator: topic/random, MCQ + true/false + open-ended, citations | ✅ working | Revanth |
 | Web search: opt-in tutor fallback + quiz "learn more" links | ✅ working | Revanth |
-| Grading + feedback, Streamlit UI | to be built on the interfaces in [§11](#11-integration-for-teammates) | Rocco |
+| Grading + Feedback | testing | Rocco |
+| Streamlit UI | to be built | Torey |
 
 ### 1. Q&A Tutor Agent (`rag/qa.py`)
 - Takes a network-security question
