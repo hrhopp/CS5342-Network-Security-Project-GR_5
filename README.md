@@ -1,11 +1,11 @@
 Add your name here so that you can become an official contributor.
-Hayden Hoppe
-Jay Dills
-Rocco Swaney
-Kevin Sanchez
-Venkata Revanth Manideep Kallagunta
-Sanjana Reddy Karna
-Modioluwamu Aderemi-Akinwale
+Hayden Hoppe, 
+Jay Dills, 
+Rocco Swaney, 
+Kevin Sanchez, 
+Venkata Revanth Manideep Kallagunta, 
+Sanjana Reddy Karna, 
+Modioluwamu Aderemi-Akinwale, 
 
 
 # CS5342-Network-Security-Project-GR_5
