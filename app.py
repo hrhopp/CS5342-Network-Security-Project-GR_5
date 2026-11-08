@@ -1,17 +1,21 @@
 """Streamlit UI for CS5342 local network-security tutor.
-Run from the repository root: streamlit run app.py
+
+Run from the repository root (Ollama must be serving on 127.0.0.1):
+    streamlit run app.py
+
+.streamlit/config.toml binds this page to 127.0.0.1:8501 only.
+Internet lookup is off by default; when on, only the question text leaves
+the machine, and only through web.search.
 """
 import streamlit as st
 
-from web.search import tutor
+from web.search import learn_more, tutor
 from quiz.generator import make_quiz, QuizError
-from rag.qa import answer
 from quiz.grader import GradingError, grade_quiz
 
 st.set_page_config(page_title="CS5342 Security Tutor",
                    page_icon="🛡️", layout="centered")
 
-# st.set_option("client.toolbarMode", "viewer")
 st.markdown("""
 <style>
     .stDeployButton, .stAppDeployButton {
@@ -68,8 +72,7 @@ with tutor_tab:
         else:
             with st.spinner("Searching course documents and preparing answer..."):
                 try:
-                    result = tutor(
-                        prompt, allow_web=allow_web) if allow_web else answer(prompt)
+                    result = tutor(prompt, allow_web=allow_web)
                 except Exception as exc:
                     st.error(f"Tutor unavailable: {exc}")
                 else:
@@ -153,6 +156,7 @@ with quiz_tab:
 
                 # Clear results from previous quiz.
                 st.session_state.pop("quiz_grade", None)
+                st.session_state.pop("quiz_links", None)
 
                 st.rerun()
 
@@ -228,6 +232,17 @@ with quiz_tab:
 
                 st.session_state["quiz_grade"] = result.to_dict()
 
+                # Internet citations for feedback (opt-in). Fetched once here,
+                # not on every rerun. Only the question text is sent.
+                links = []
+                if allow_web:
+                    with st.spinner("Looking up internet references..."):
+                        for q in questions:
+                            found = learn_more(
+                                q.get("text", ""), topic=quiz_data.get("topic"))
+                            links.append([r.full_citation for r in found])
+                st.session_state["quiz_links"] = links
+
             except GradingError as exc:
                 st.session_state.pop("quiz_grade", None)
                 st.error(f"Grading failed: {exc}")
@@ -290,103 +305,26 @@ with quiz_tab:
                             f"**Score:** {result['score']:.2f} / 1"
                         )
 
+                    if result.get("expected_answer"):
+                        st.write("**Correct answer:**")
+                        st.write(result["expected_answer"])
+
                     st.write("**Feedback:**")
                     st.write(result["feedback"])
 
                     if result.get("citation"):
                         st.caption(
-                            f"Source: {result['citation']}"
+                            f"Course source: {result['citation']}"
                         )
 
-    # st.subheader("Generate a practice quiz")
-    # mode = st.radio("Quiz mode", ["Topic", "Random"], horizontal=True)
-    # topic = st.text_input(
-    #     "Network security topic",
-    #     placeholder="e.g. Kerberos, RSA, TLS",
-    #     disabled=(mode == "Random"),
-    # )
-    # c1, c2, c3 = st.columns(3)
-    # with c1:
-    #     mcq_count = st.number_input("Multiple choice", 0, 10, 2)
-    # with c2:
-    #     tf_count = st.number_input("True / false", 0, 10, 2)
-    # with c3:
-    #     open_count = st.number_input("Open-ended", 0, 10, 1)
+                    links = st.session_state.get("quiz_links") or []
+                    if i < len(links) and links[i]:
+                        st.write("**Learn more (internet):**")
+                        for link in links[i]:
+                            st.caption(link)
+                    elif not allow_web:
+                        st.caption(
+                            "Turn on internet lookup in the sidebar before "
+                            "grading to get internet references."
+                        )
 
-    # if st.button("Generate quiz", type="primary"):
-    #     total = mcq_count + tf_count + open_count
-    #     if not 1 <= total <= 10:
-    #         st.error("Choose between 1 and 10 questions in total.")
-    #     elif mode == "Topic" and not topic.strip():
-    #         st.error("Enter a topic or choose Random.")
-    #     else:
-    #         with st.spinner("Generating questions locally. This may take a minute..."):
-    #             try:
-    #                 quiz = make_quiz(
-    #                     topic=topic.strip() if mode == "Topic" else None,
-    #                     counts={
-    #                         "mcq": int(mcq_count),
-    #                         "true_false": int(tf_count),
-    #                         "open_ended": int(open_count),
-    #                     },
-    #                 )
-    #             except Exception as exc:
-    #                 st.error(f"Could not generate quiz: {exc}")
-    #             else:
-    #                 st.session_state.quiz = quiz.to_dict()
-    #                 st.session_state.quiz_version = st.session_state.get(
-    #                     "quiz_version", 0) + 1
-    #                 st.session_state.graded = False
-    #                 st.rerun()
-
-    # if "quiz" in st.session_state:
-    #     quiz = st.session_state.quiz
-    #     version = st.session_state.quiz_version
-    #     st.markdown(f"### {quiz['topic']}")
-    #     st.caption(f"{len(quiz['questions'])} questions · {quiz['mode']} quiz")
-    #     with st.form(f"quiz_form_{version}"):
-    #         for i, q in enumerate(quiz["questions"]):
-    #             st.markdown(f"**Question {i + 1}.** {q['text']}")
-    #             key = f"quiz_{version}_{i}"
-    #             if q["type"] == "mcq":
-    #                 st.radio("Choose an answer", [
-    #                          "Select an answer"] + q["options"], key=key)
-    #             elif q["type"] == "true_false":
-    #                 st.radio("Choose an answer", [
-    #                          "Select an answer", "True", "False"], key=key)
-    #             else:
-    #                 st.text_area("Your answer", key=key, height=100)
-    #         submitted = st.form_submit_button("Grade quiz", type="primary")
-    #     if submitted:
-    #         st.session_state.responses = [
-    #             st.session_state.get(f"quiz_{version}_{i}", "")
-    #             for i in range(len(quiz["questions"]))
-    #         ]
-    #         st.session_state.graded = True
-    #     if st.session_state.get("graded", False):
-    #         st.divider()
-    #         st.subheader("Your results")
-    #         correct = 0
-    #         objective_total = 0
-    #         for i, (q, response) in enumerate(zip(quiz["questions"], st.session_state.responses)):
-    #             st.markdown(f"**Question {i + 1}**")
-    #             if q["type"] in ("mcq", "true_false"):
-    #                 objective_total += 1
-    #                 is_correct = response.strip().casefold(
-    #                 ) == q["answer"].strip().casefold()
-    #                 correct += int(is_correct)
-    #                 (st.success if is_correct else st.error)(
-    #                     "Correct" if is_correct else "Incorrect")
-    #                 st.write(f"Your answer: {response}")
-    #             else:
-    #                 st.info(
-    #                     "Open-ended answer: review against the reference answer (not automatically scored).")
-    #                 st.write(f"Your answer: {response or '(No answer)'}")
-    #             st.write(f"**Reference answer:** {q['answer']}")
-    #             st.write(f"**Explanation:** {q['explanation']}")
-    #             st.caption(f"Source: {q['citation']}")
-    #         if objective_total:
-    #             st.metric("Automatically graded questions",
-    #                       f"{correct} / {objective_total}")
-    #         st.caption(
-    #             "Open-ended answers require manual review; the objective score excludes them.")

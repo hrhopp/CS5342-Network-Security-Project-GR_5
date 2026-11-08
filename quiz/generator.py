@@ -208,6 +208,9 @@ TYPE_ALIASES = {
 }
 OPTION_PREFIX = re.compile(r"^\s*(?:\(?[A-Da-d][).:]|[A-Da-d]\s*-)\s+")
 LETTER_ANSWER = re.compile(r"^\s*\(?([A-Da-d])\)?[).:]?\s*$")
+BARE_LETTER_PREFIX = re.compile(r"^[A-D]\s+\S")
+# Uppercase only: lowercase "d" or "e" can be a real answer (RSA exponents).
+PLACEHOLDER_OPTION = re.compile(r"^\s*(?:\(?[A-D]\)?[).:]?|\.{2,}|…|(?i:option)\s*[A-D1-4]?)\s*$")
 # "This is based on S6", "(see S1 and S3)", "[S2]": source labels mean nothing
 # to a student, and the citation is shown separately anyway.
 LABEL_MENTION = re.compile(r"\(?\s*(?:this\s+is\s+|as\s+)?(?:based\s+on|from|see|according\s+to)?"
@@ -231,13 +234,18 @@ def _explanation(text: str, citation: str) -> str:
 
 def _mcq_answer(answer: str, options: list[str]) -> str | None:
     """Map the model's answer onto one of the options, or None if it isn't one."""
+    if answer.strip() in options:          # options can be letters too ("d" in RSA)
+        return answer.strip()
     letter = LETTER_ANSWER.match(answer)
     if letter:
         return options["abcd".index(letter.group(1).lower())]
-    key = _option_key(OPTION_PREFIX.sub("", answer))
-    for option in options:
-        if _option_key(option) == key:
-            return option
+    keys = [_option_key(OPTION_PREFIX.sub("", answer))]
+    if BARE_LETTER_PREFIX.match(answer):    # "B Get ticket ..." (see parse_questions)
+        keys.append(_option_key(answer[2:]))
+    for key in keys:
+        for option in options:
+            if _option_key(option) == key:
+                return option
     return None
 
 
@@ -276,8 +284,15 @@ def parse_questions(raw: str, chunks: list[RetrievedChunk]) -> tuple[list[Questi
                 rejected.append(f"#{n}: multiple-choice without options")
                 continue
             options = [OPTION_PREFIX.sub("", _str(o)).strip() for o in raw_options]
+            # "A Get ...", "B Get ...", "C ...", "D ...": a letter label without
+            # punctuation. Only stripped when all four follow A-D in order, so a
+            # real option such as "A centralized server" is left alone.
+            if len(options) == 4 and all(
+                    o.startswith(f"{letter} ") for letter, o in zip("ABCD", options)):
+                options = [o[2:].strip() for o in options]
+            # A bare letter ("B") or "..." is a placeholder, not a real choice.
             if len(options) != 4 or len({_option_key(o) for o in options}) != 4 \
-                    or not all(options):
+                    or not all(options) or any(PLACEHOLDER_OPTION.match(o) for o in options):
                 rejected.append(f"#{n}: needs 4 different options")
                 continue
             answer = _mcq_answer(answer, options)
