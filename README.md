@@ -1,11 +1,12 @@
 Add your name here so that you can become an official contributor.
-Hayden Hoppe, 
-Jay Dills, 
-Rocco Swaney, 
-Kevin Esau Sanchez, 
-Venkata Revanth Manideep Kallagunta, 
-Sanjana Reddy Karna, 
-Modioluwamu Aderemi-Akinwale, 
+- Hayden Hoppe
+- Jay Dills
+- Rocco Swaney
+- Kevin Esau Sanchez
+- Venkata Revanth Manideep Kallagunta
+- Sanjana Reddy Karna
+- Modioluwamu Aderemi-Akinwale
+- Torey Taylor
 
 
 # CS5342-Network-Security-Project-GR_5
@@ -38,6 +39,12 @@ on your user interface, or encryption of the local vector database at rest.
 
 ---
 
+## Demo Video
+
+**VIDEO LINK: _add before submission_**: walkthrough of `streamlit run app.py`: Q&A with citations,
+off-topic refusal, web-assisted answer, topic and random quiz, grading with feedback.
+
+---
 # 1. Project Statement
 
 Network-security courses come with hundreds of pages of slides, textbooks and homework. Searching
@@ -65,8 +72,8 @@ We built a **local retrieval-augmented generation (RAG) tutor** that:
 | macOS setup + security checks on macOS (`--egress` via `lsof`) | ✅ working | Revanth |
 | Quiz generator: topic/random, MCQ + true/false + open-ended, citations | ✅ working | Revanth |
 | Web search: opt-in tutor fallback + quiz "learn more" links | ✅ working | Revanth |
-| Grading + Feedback | added for testing | Rocco |
-| Streamlit UI | to be built | Torey |
+| Grading + feedback: score, correct answer, slide + internet citations | ✅ working | Rocco |
+| Streamlit UI (`app.py`), bound to 127.0.0.1 only | ✅ working | Torey |
 
 ### 1. Q&A Tutor Agent (`rag/qa.py`)
 - Takes a network-security question
@@ -193,12 +200,16 @@ CS5342-Network-Security-Project-GR_5/
 │   ├── llm.py                   # local LLM call                        → generate()
 │   ├── qa.py                    # Q&A agent, citations, injection defenses → answer()
 │   └── security_check.py        # local-only checks, --harden, --egress [--web]
+├── app.py                       # Streamlit UI: tutor chat + quiz → `streamlit run app.py`
+├── .streamlit/config.toml       # binds the UI to 127.0.0.1:8501, usage stats off
 ├── quiz/
-│   └── generator.py             # Quiz agent: questions + answers + citations → make_quiz()
+│   ├── generator.py             # Quiz agent: questions + answers + citations → make_quiz()
+│   └── grader.py                # grading + feedback with citations       → grade_quiz()
 ├── web/
 │   └── search.py                # opt-in web search → tutor(), learn_more(), search()
 ├── tests/
-│   └── make_test_pdf.py         # builds PDFs (optionally with hidden text) for injection tests
+│   ├── make_test_pdf.py         # builds PDFs (optionally with hidden text) for injection tests
+│   └── test_grader.py           # grader unit tests
 ├── docs/raw/                    # course PDFs (gitignored, never committed)
 │   ├── slides/                  # → doc_type "slides"
 │   ├── textbook/                # → doc_type "textbook"
@@ -328,7 +339,17 @@ python -m web.search --answer "What is Log4Shell?"   # tutor; web only if the co
 python -m web.search "Heartbleed bug"                # search only, no LLM
 ```
 
-### Step 8: Verify local-only
+### Step 8: Run the web UI (end to end)
+```powershell
+streamlit run app.py      # opens http://127.0.0.1:8501 (localhost only)
+```
+- **Ask the tutor** tab: chat Q&A with course citations (and web citations when the sidebar
+  "Allow internet lookup" switch is on and the course has no answer).
+- **Practice quiz** tab: Topic or Random quiz, choose how many MCQ / true-false / open-ended
+  questions, answer them, then **Grade Quiz** for a score, the correct answer, feedback, the
+  course citation and (with internet lookup on) "Learn more" internet citations.
+
+### Step 9: Verify local-only
 ```powershell
 python -m rag.security_check --egress                               # scenario 1: local-only
 python -m rag.security_check --egress "What is Log4Shell?" --web    # scenario 2: internet-assisted
@@ -595,6 +616,7 @@ python -m rag.llm "prompt"                    # raw model call
 python -m quiz.generator "topic" | --random [--json]   # quiz agent
 python -m web.search [--answer] "question"    # opt-in web search
 python -m rag.security_check [--harden] [--egress [QUESTION] [--web]]
+streamlit run app.py                          # web UI on 127.0.0.1:8501
 ```
 
 ### References

@@ -1,0 +1,11 @@
+# The course requirement is a page on this machine, not a server on the network.
+# Streamlit would otherwise listen on every interface.
+[server]
+address = "127.0.0.1"
+port = 8501
+headless = true
+enableXsrfProtection = true
+enableCORS = true
+
+[browser]
+gatherUsageStats = false
