@@ -625,3 +625,9 @@ streamlit run app.py                          # web UI on 127.0.0.1:8501
 3. Ollama: https://ollama.com/
 4. Nomic Embed: https://www.nomic.ai/blog/posts/nomic-embed-text-v1
 5. OWASP Top 10 for LLM Applications (prompt injection): https://genai.owasp.org/
+
+# 16. Demo
+
+<p align="center">
+  <video src="./assets/demo.mp4" width="80%" controls></video>
+</p>
