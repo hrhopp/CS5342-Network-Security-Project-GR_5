@@ -628,6 +628,4 @@ streamlit run app.py                          # web UI on 127.0.0.1:8501
 
 # 16. Demo
 
-<p align="center">
-  <video src="./assets/demo.mp4" width="80%" controls></video>
-</p>
+![Demo](./assets/demo.gif)
